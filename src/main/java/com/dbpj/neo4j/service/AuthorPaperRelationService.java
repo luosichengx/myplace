@@ -65,6 +65,25 @@ public interface AuthorPaperRelationService {
      */
     List<AuthorPaperRelation> findAuthorsCooperateWith(String name, String url, Integer k);
 
+
+    /**
+     * 查询两作者合作论文
+     */
+    List<AuthorPaperRelation> findAuthorsCooperateBetweenWithId(Integer authorA, Integer authorB, Integer k);
+
+
+    /**
+     * 查询两作者合作论文
+     */
+    List<AuthorPaperRelation> findAuthorsCooperateBetweenWithUrl(String authorA, String authorB, Integer k);
+
+
+    /**
+     * 查询两作者合作论文
+     */
+    List<AuthorPaperRelation> findAuthorsCooperateBetweenWithAuthorName(String authorA, String authorB, Integer k);
+
+
     /**
      * 保存
      */

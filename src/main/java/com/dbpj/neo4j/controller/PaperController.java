@@ -1,9 +1,12 @@
 package com.dbpj.neo4j.controller;
 
+import com.dbpj.neo4j.VO.Neo4jGraphVO;
 import com.dbpj.neo4j.VO.ResultVO;
+import com.dbpj.neo4j.enums.CategoryEnum;
 import com.dbpj.neo4j.enums.ResultEnum;
 import com.dbpj.neo4j.node.*;
 import com.dbpj.neo4j.relation.AuthorDepartmentRelation;
+import com.dbpj.neo4j.relation.AuthorPaperRelation;
 import com.dbpj.neo4j.service.*;
 import com.dbpj.neo4j.service.impl.AuthorDepartmentRelationServiceImpl;
 import com.dbpj.neo4j.service.impl.AuthorPaperRelationServiceImpl;
@@ -11,13 +14,12 @@ import com.dbpj.neo4j.service.impl.PaperConferenceRelationServiceImpl;
 import com.dbpj.neo4j.service.impl.PaperFieldRelationServiceImpl;
 import com.dbpj.neo4j.utils.ResultVOUtil;
 import net.sf.json.JSONObject;
+import org.neo4j.ogm.model.Result;
+import org.neo4j.ogm.session.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * @Author: Jeremy
@@ -52,6 +54,153 @@ public class PaperController {
 
     @Autowired
     private PaperFieldRelationServiceImpl paperFieldRelationService;
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    // 查询作者信息
+    @CrossOrigin
+    @PostMapping("/simple-query")
+    public ResultVO getSimpleQuery(@RequestParam(value = "type") Integer type,
+                                   @RequestParam(value = "conference", required = false, defaultValue = "")String conference,
+                                   @RequestParam(value = "author", required = false, defaultValue = "") String author,
+                                   @RequestParam(value = "field", required = false, defaultValue = "") String field,
+                                   @RequestParam(value = "publishYear", required = false, defaultValue = "") Integer publishYear,
+                                   @RequestParam(value = "paperTitle", required = false, defaultValue = "") String paperTitle,
+                                   @RequestParam(value = "showTime", required = false, defaultValue = "10") Integer limit,
+                                   @RequestParam(value = "queryTime", required = false, defaultValue = "1") Integer queryTimes){
+        System.out.println("您正在做链接查询");
+        System.out.println("conference: " + conference);
+        System.out.println("author: " + author);
+        System.out.println("field: " + field);
+        System.out.println("publishYear: " + publishYear);
+        System.out.println("paperTitle: " + paperTitle);
+
+
+        // 如果type不为4，则忽略请求
+        if(type != 2 && type != 1){
+            return ResultVOUtil.error(ResultEnum.TYPE_ERROR);
+        }
+
+        if(conference.length() == 0 && author.length() == 0 && field.length() == 0 && publishYear == null && paperTitle.length() == 0){
+            return ResultVOUtil.error(ResultEnum.ERROR);
+        }
+
+        String publishYearString = "";
+        String r = "";
+        if(paperTitle.length() == 0){
+            paperTitle = ".*";
+        }
+        if(publishYear != null){
+            publishYearString = "AND p.pYear = " + publishYear;
+        }
+        if(conference.length() != 0){
+            conference = " MATCH r1 = (c:conference) -- (p) WHERE c.cName = \"" + conference + "\"";
+            r = r + ",r1";
+        }
+        if(author.length() != 0){
+            author = " MATCH r2 = (a:author) -- (p) WHERE a.aName = \"" + author + "\"";
+            r = r + ",r2";
+        }
+        if(field.length() != 0){
+            field = " MATCH r3 = (f:field) -- (p) WHERE f.fName = \"" + field + "\"";
+            r = r + ",r3";
+        }
+        if(r.length() == 0) r = "p";
+        else{
+            r = r.substring(1);
+        }
+
+        System.out.println("MATCH (p:paper) WHERE p.pTitle =~ ('(?i).*'+\"" + paperTitle  + "\"+'.*')" + publishYearString +
+                conference +
+                author +
+                field +
+                " RETURN " + r + " LIMIT " + limit);
+        // 记录执行时间
+        long runtime = 0;
+        long startTime = System.currentTimeMillis();   //获取开始时间
+
+//        List<Object> Objects = paperService.findAllByAll(conference, author, field, publishYearString, paperTitle, r, limit);
+        Result result = sessionFactory.openSession().query("MATCH (p:paper) WHERE p.pTitle =~ ('(?i).*'+\"" + paperTitle  + "\"+'.*')" + publishYearString +
+                conference +
+                author +
+                field +
+                " RETURN " + r + " LIMIT " + limit,new TreeMap<>());
+        long endTime=System.currentTimeMillis(); //获取结束时间
+        runtime += endTime-startTime;
+
+        // 返回
+        Map<String, Long> ret = new TreeMap<>();
+        ret.put("time", runtime);
+        Iterable resultlist = result.queryResults();
+        List<TreeMap> nodes = new ArrayList<>();
+        List<TreeMap> links = new ArrayList<>();
+        if(r == "p"){
+            for (Iterator iter = resultlist.iterator(); iter.hasNext();) {
+                LinkedHashMap<String,Paper> str = (LinkedHashMap<String,Paper>)iter.next();
+                TreeMap<String, Object> paper = new TreeMap<>();
+                Paper p = str.get("p");
+                paper.put("name", p.getPTitle());
+                paper.put("value", 1);
+                paper.put("category", CategoryEnum.PAPER.getCode());
+                nodes.add(paper);
+
+            }
+        }
+        else {
+            for (Iterator iter = resultlist.iterator(); iter.hasNext(); ) {
+                LinkedHashMap<String, String> str = (LinkedHashMap<String, String>) iter.next();
+                System.out.println(str);
+            }
+        }
+
+        Neo4jGraphVO neo4jGraphVO = new Neo4jGraphVO("force");
+//        List<TreeMap> nodes = new ArrayList<>();
+//        List<TreeMap> links = new ArrayList<>();
+        int index = 0;
+        Map<Long, Integer> indexMap = new HashMap<>();
+//        for (Object Objectitem : Objects){
+//            TreeMap<String, Object> node = new TreeMap<>();
+//            TreeMap<String, Object> paper = new TreeMap<>();
+//            TreeMap<String, Integer> link = new TreeMap<>();
+//            System.out.println(Objectitem);
+//
+//            // 增加 author
+//            Author a = authorPaperRelation.getAuthor();
+//            Long aId = a.getId();
+//            if (!indexMap.containsKey(aId)){
+//                indexMap.put(aId, index++);
+//                node.put("name", authorPaperRelation.getAuthor().getAName());
+//                node.put("value", 1);
+//                node.put("category", CategoryEnum.AUTHOR.getCode());
+//                nodes.add(node);
+//            }
+//            int sourceIndex = indexMap.get(aId);
+//
+//            // 增加 paper
+//            Paper p = authorPaperRelation.getPaper();
+//            Long pId = p.getId();
+//            if (!indexMap.containsKey(pId)){
+//                indexMap.put(pId, index++);
+//                paper.put("name", authorPaperRelation.getPaper().getPTitle());
+//                paper.put("value", 1);
+//                paper.put("category", CategoryEnum.PAPER.getCode());
+//                nodes.add(paper);
+//            }
+//            int targetIndex = indexMap.get(pId);
+//
+//            link.put("source", sourceIndex);
+//            link.put("target", targetIndex);
+//
+//            links.add(link);
+//        }
+
+        neo4jGraphVO.setNodes(nodes);
+        neo4jGraphVO.setLinks(links);
+        neo4jGraphVO.setTime(runtime);
+        System.out.println(neo4jGraphVO.toString());
+        return ResultVOUtil.success(neo4jGraphVO);
+    }
 
     // 插入论文
     @CrossOrigin

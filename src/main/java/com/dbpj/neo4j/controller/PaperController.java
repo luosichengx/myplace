@@ -87,7 +87,10 @@ public class PaperController {
         }
 
         String publishYearString = "";
-        String r = "";
+        String r = "p";
+        boolean c_Flag = false;
+        boolean a_Flag = false;
+        boolean f_Flag = false;
         if(paperTitle.length() == 0){
             paperTitle = ".*";
         }
@@ -95,20 +98,19 @@ public class PaperController {
             publishYearString = "AND p.pYear = " + publishYear;
         }
         if(conference.length() != 0){
-            conference = " MATCH r1 = (c:conference) -- (p) WHERE c.cName = \"" + conference + "\"";
-            r = r + ",r1";
+            conference = " MATCH (c:conference) -- (p) WHERE c.cName = \"" + conference + "\"";
+            r = r + ",c";
+            c_Flag = true;
         }
         if(author.length() != 0){
-            author = " MATCH r2 = (a:author) -- (p) WHERE a.aName = \"" + author + "\"";
-            r = r + ",r2";
+            author = " MATCH (a:author) -- (p) WHERE a.aName = \"" + author + "\"";
+            r = r + ",a";
+            a_Flag = true;
         }
         if(field.length() != 0){
-            field = " MATCH r3 = (f:field) -- (p) WHERE f.fName = \"" + field + "\"";
-            r = r + ",r3";
-        }
-        if(r.length() == 0) r = "p";
-        else{
-            r = r.substring(1);
+            field = " MATCH (f:field) -- (p) WHERE f.fName = \"" + field + "\"";
+            r = r + ",f";
+            f_Flag = true;
         }
 
         System.out.println("MATCH (p:paper) WHERE p.pTitle =~ ('(?i).*'+\"" + paperTitle  + "\"+'.*')" + publishYearString +
@@ -133,6 +135,10 @@ public class PaperController {
         Map<String, Long> ret = new TreeMap<>();
         ret.put("time", runtime);
         Iterable resultlist = result.queryResults();
+
+        Neo4jGraphVO neo4jGraphVO = new Neo4jGraphVO("force");
+        int index = 0;
+        Map<Long, Integer> indexMap = new HashMap<>();
         List<TreeMap> nodes = new ArrayList<>();
         List<TreeMap> links = new ArrayList<>();
         if(r == "p"){
@@ -149,51 +155,79 @@ public class PaperController {
         }
         else {
             for (Iterator iter = resultlist.iterator(); iter.hasNext(); ) {
-                LinkedHashMap<String, String> str = (LinkedHashMap<String, String>) iter.next();
-                System.out.println(str);
+                LinkedHashMap<String, Object> str = (LinkedHashMap<String, Object>) iter.next();
+                Paper p = (Paper)str.get("p");
+                Long pId = p.getId();
+                if (!indexMap.containsKey(pId)) {
+                    indexMap.put(pId, index++);
+                    TreeMap<String, Object> node = new TreeMap<>();
+                    node.put("name", p.getPTitle());
+                    node.put("value", 1);
+                    node.put("category", CategoryEnum.PAPER.getCode());
+                    nodes.add(node);
+                }
+                int sourceIndex = indexMap.get(pId);
+                if(a_Flag){
+                    TreeMap<String, Object> node = new TreeMap<>();
+                    TreeMap<String, Integer> link = new TreeMap<>();
+                    Author a = (Author) str.get("a");
+                    Long aId = a.getId();
+                    if (!indexMap.containsKey(aId)){
+                        indexMap.put(aId, index++);
+                        node.put("name", a.getAName());
+                        node.put("value", 1);
+                        node.put("category", CategoryEnum.AUTHOR.getCode());
+                        nodes.add(node);
+                    }
+                    int targetIndex = indexMap.get(aId);
+
+                    link.put("source", sourceIndex);
+                    link.put("target", targetIndex);
+
+                    links.add(link);
+                }
+                if(c_Flag){
+                    TreeMap<String, Object> node = new TreeMap<>();
+                    TreeMap<String, Integer> link = new TreeMap<>();
+                    Conference c = (Conference) str.get("c");
+                    Long cId = c.getId();
+                    if (!indexMap.containsKey(cId)){
+                        indexMap.put(cId, index++);
+                        node.put("name", c.getCName());
+                        node.put("value", 1);
+                        node.put("category", CategoryEnum.AUTHOR.getCode());
+                        nodes.add(node);
+                    }
+                    int targetIndex = indexMap.get(cId);
+
+                    link.put("source", sourceIndex);
+                    link.put("target", targetIndex);
+
+                    links.add(link);
+                }
+                if(f_Flag){
+                    TreeMap<String, Object> node = new TreeMap<>();
+                    TreeMap<String, Integer> link = new TreeMap<>();
+                    Field f = (Field) str.get("f");
+                    Long fId = f.getId();
+                    if (!indexMap.containsKey(fId)){
+                        indexMap.put(fId, index++);
+                        node.put("name", f.getFName());
+                        node.put("value", 1);
+                        node.put("category", CategoryEnum.AUTHOR.getCode());
+                        nodes.add(node);
+                    }
+                    int targetIndex = indexMap.get(fId);
+
+                    link.put("source", sourceIndex);
+                    link.put("target", targetIndex);
+
+                    links.add(link);
+                }
+
+
             }
         }
-
-        Neo4jGraphVO neo4jGraphVO = new Neo4jGraphVO("force");
-//        List<TreeMap> nodes = new ArrayList<>();
-//        List<TreeMap> links = new ArrayList<>();
-        int index = 0;
-        Map<Long, Integer> indexMap = new HashMap<>();
-//        for (Object Objectitem : Objects){
-//            TreeMap<String, Object> node = new TreeMap<>();
-//            TreeMap<String, Object> paper = new TreeMap<>();
-//            TreeMap<String, Integer> link = new TreeMap<>();
-//            System.out.println(Objectitem);
-//
-//            // 增加 author
-//            Author a = authorPaperRelation.getAuthor();
-//            Long aId = a.getId();
-//            if (!indexMap.containsKey(aId)){
-//                indexMap.put(aId, index++);
-//                node.put("name", authorPaperRelation.getAuthor().getAName());
-//                node.put("value", 1);
-//                node.put("category", CategoryEnum.AUTHOR.getCode());
-//                nodes.add(node);
-//            }
-//            int sourceIndex = indexMap.get(aId);
-//
-//            // 增加 paper
-//            Paper p = authorPaperRelation.getPaper();
-//            Long pId = p.getId();
-//            if (!indexMap.containsKey(pId)){
-//                indexMap.put(pId, index++);
-//                paper.put("name", authorPaperRelation.getPaper().getPTitle());
-//                paper.put("value", 1);
-//                paper.put("category", CategoryEnum.PAPER.getCode());
-//                nodes.add(paper);
-//            }
-//            int targetIndex = indexMap.get(pId);
-//
-//            link.put("source", sourceIndex);
-//            link.put("target", targetIndex);
-//
-//            links.add(link);
-//        }
 
         neo4jGraphVO.setNodes(nodes);
         neo4jGraphVO.setLinks(links);

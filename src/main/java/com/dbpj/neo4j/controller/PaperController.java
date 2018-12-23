@@ -69,6 +69,10 @@ public class PaperController {
                                    @RequestParam(value = "paperTitle", required = false, defaultValue = "") String paperTitle,
                                    @RequestParam(value = "showTime", required = false, defaultValue = "10") Integer limit,
                                    @RequestParam(value = "queryTime", required = false, defaultValue = "1") Integer queryTimes){
+        return simple_query(type, conference, author, field, publishYear, paperTitle, limit, sessionFactory);
+    }
+
+    public ResultVO simple_query(@RequestParam("type") Integer type, @RequestParam(value = "conference", required = false, defaultValue = "") String conference, @RequestParam(value = "author", required = false, defaultValue = "") String author, @RequestParam(value = "field", required = false, defaultValue = "") String field, @RequestParam(value = "publishYear", required = false, defaultValue = "") Integer publishYear, @RequestParam(value = "paperTitle", required = false, defaultValue = "") String paperTitle, @RequestParam(value = "showTime", required = false, defaultValue = "10") Integer limit, SessionFactory session) {
         System.out.println("您正在做链接查询");
         System.out.println("conference: " + conference);
         System.out.println("author: " + author);
@@ -98,17 +102,17 @@ public class PaperController {
             publishYearString = "AND p.pYear = " + publishYear;
         }
         if(conference.length() != 0){
-            conference = " MATCH (c:conference) -- (p) WHERE c.cName = \"" + conference + "\"";
+            conference = " MATCH (c:conference) -- (p) WHERE c.cName contains \"" + conference + "\"";
             r = r + ",c";
             c_Flag = true;
         }
         if(author.length() != 0){
-            author = " MATCH (a:author) -- (p) WHERE a.aName = \"" + author + "\"";
+            author = " MATCH (a:author) -- (p) WHERE a.aName contains \"" + author + "\"";
             r = r + ",a";
             a_Flag = true;
         }
         if(field.length() != 0){
-            field = " MATCH (f:field) -- (p) WHERE f.fName = \"" + field + "\"";
+            field = " MATCH (f:field) -- (p) WHERE f.fName contains \"" + field + "\"";
             r = r + ",f";
             f_Flag = true;
         }
@@ -123,7 +127,7 @@ public class PaperController {
         long startTime = System.currentTimeMillis();   //获取开始时间
 
 //        List<Object> Objects = paperService.findAllByAll(conference, author, field, publishYearString, paperTitle, r, limit);
-        Result result = sessionFactory.openSession().query("MATCH (p:paper) WHERE p.pTitle =~ ('(?i).*'+\"" + paperTitle  + "\"+'.*')" + publishYearString +
+        Result result = session.openSession().query("MATCH (p:paper) WHERE p.pTitle =~ ('(?i).*'+\"" + paperTitle  + "\"+'.*')" + publishYearString +
                 conference +
                 author +
                 field +
@@ -143,7 +147,7 @@ public class PaperController {
         List<TreeMap> links = new ArrayList<>();
         if(r == "p"){
             for (Iterator iter = resultlist.iterator(); iter.hasNext();) {
-                LinkedHashMap<String,Paper> str = (LinkedHashMap<String,Paper>)iter.next();
+                LinkedHashMap<String, Paper> str = (LinkedHashMap<String,Paper>)iter.next();
                 TreeMap<String, Object> paper = new TreeMap<>();
                 Paper p = str.get("p");
                 paper.put("name", p.getPTitle());
@@ -195,7 +199,7 @@ public class PaperController {
                         indexMap.put(cId, index++);
                         node.put("name", c.getCName());
                         node.put("value", 1);
-                        node.put("category", CategoryEnum.AUTHOR.getCode());
+                        node.put("category", CategoryEnum.CONFERENCE.getCode());
                         nodes.add(node);
                     }
                     int targetIndex = indexMap.get(cId);
@@ -214,7 +218,7 @@ public class PaperController {
                         indexMap.put(fId, index++);
                         node.put("name", f.getFName());
                         node.put("value", 1);
-                        node.put("category", CategoryEnum.AUTHOR.getCode());
+                        node.put("category", CategoryEnum.FIELD.getCode());
                         nodes.add(node);
                     }
                     int targetIndex = indexMap.get(fId);
@@ -224,8 +228,6 @@ public class PaperController {
 
                     links.add(link);
                 }
-
-
             }
         }
 

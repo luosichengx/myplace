@@ -10,6 +10,7 @@ import com.dbpj.neo4j.service.AuthorPaperRelationService;
 import com.dbpj.neo4j.service.AuthorService;
 import com.dbpj.neo4j.utils.ResultVOUtil;
 import net.sf.json.JSONObject;
+import org.neo4j.ogm.session.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +28,23 @@ public class AuthorController {
 
     @Autowired
     private AuthorPaperRelationService authorPaperRelationService;
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    // 查询作者信息
+    @CrossOrigin
+    @PostMapping("/simple-query")
+    public ResultVO getSimpleQuery(@RequestParam(value = "type") Integer type,
+                                   @RequestParam(value = "conference", required = false, defaultValue = "")String conference,
+                                   @RequestParam(value = "author", required = false, defaultValue = "") String author,
+                                   @RequestParam(value = "field", required = false, defaultValue = "") String field,
+                                   @RequestParam(value = "publishYear", required = false, defaultValue = "") Integer publishYear,
+                                   @RequestParam(value = "paperTitle", required = false, defaultValue = "") String paperTitle,
+                                   @RequestParam(value = "showTime", required = false, defaultValue = "10") Integer limit,
+                                   @RequestParam(value = "queryTime", required = false, defaultValue = "1") Integer queryTimes){
+        return new PaperController().simple_query(type, conference, author, field, publishYear, paperTitle, limit, sessionFactory);
+    }
 
     @CrossOrigin
     @PostMapping("/cooperationBetween")
@@ -65,7 +83,7 @@ public class AuthorController {
             authorPaperRelations = authorPaperRelationService.findAuthorsCooperateBetweenWithId(authorAid, authorBid, limit);
         }
         else if (authorAid < 0 && authorBid < 0){
-            authorPaperRelations = authorPaperRelationService.findAuthorsCooperateBetweenWithUrl(authorA, authorB, limit);
+            authorPaperRelations = authorPaperRelationService.findAuthorsCooperateBetweenWithAuthorName(authorA, authorB, limit);
         }
         else{
             return ResultVOUtil.error(ResultEnum.TYPE_ERROR);

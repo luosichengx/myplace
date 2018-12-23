@@ -46,7 +46,7 @@ public interface AuthorPaperRelationRepository extends GraphRepository<AuthorPap
             "RETURN w LIMIT {k}")
     List<AuthorPaperRelation> findAuthorsCooperateBetweenWithUrl(@Param("authorA")String authorA, @Param("authorB")String authorB, @Param("k")Integer k);
 
-    @Query("MATCH w=(a1:author)-[r1]->(p:paper)<-[r2]-(a2:author) " +
+    @Query("MATCH w=(a1:author)-[r:publish * 2..8]-(a2:author) " +
             "WHERE a1.aName =~ ('(?i).*'+{authorA}+'.*') " +
             "AND a2.aName =~ ('(?i).*'+{authorB}+'.*') " +
             "RETURN w LIMIT {k}")
